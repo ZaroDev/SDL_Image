@@ -28,6 +28,14 @@ int Entity::GetX()
 {
 	return x;
 }
+void Entity::SetX(int posx)
+{
+	x = posx;
+}
+int Entity::GetWidth()
+{
+	return width;
+}
 void Entity::ShutDown()
 {
 	is_alive = false;

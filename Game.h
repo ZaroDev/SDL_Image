@@ -30,14 +30,17 @@ public:
 private:
 	SDL_Window *Window;
 	SDL_Renderer *Renderer;
-	SDL_Surface* Spaceship;
-	SDL_Surface* Shot;
-	SDL_Texture* SpaceshipTexture;
-	SDL_Texture* ShotTexture;
+	
+	SDL_Texture* Spaceship;
+	SDL_Texture* Shot;
+	SDL_Texture* Background;
 
-	Entity Player, Shots[MAX_SHOTS], Shots2[MAX_SHOTS];
+	Entity Player, Shots[MAX_SHOTS], Scene;
+
+	bool godMode;
+
 	int idx_shot;
-	int idx_shot2;
+
 
 	enum KEY_STATE { KEY_IDLE, KEY_DOWN, KEY_REPEAT, KEY_UP	};
 	KEY_STATE keys[MAX_KEYS]; 

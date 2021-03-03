@@ -29,28 +29,53 @@ bool Game::Init()
 	for (int i = 0; i < MAX_KEYS; ++i)
 		keys[i] = KEY_IDLE;
 	//Initialize sprites
-	IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG);
-	if (IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG) == 0)
+	IMG_Init(IMG_INIT_PNG);
+	if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG)
 	{
 		SDL_Log("Unable to initialize images: %s", SDL_GetError());
+		return false;
 	}
-	Spaceship = IMG_Load("spaceship.png");
-	SpaceshipTexture = SDL_CreateTextureFromSurface(Renderer, Spaceship);
+	
+	Spaceship = SDL_CreateTextureFromSurface(Renderer, IMG_Load("spaceship.png"));
+	if (Spaceship == NULL)
+	{
+		SDL_Log("Unable to load Spaceship: %s", SDL_GetError());
+		return false;
+	}
 
-	Shot = IMG_Load("shot.png");
-	ShotTexture = SDL_CreateTextureFromSurface(Renderer, Shot);
+	
+	Shot = SDL_CreateTextureFromSurface(Renderer, IMG_Load("shot.png"));
+	if (Shot == NULL)
+	{
+		SDL_Log("Unable to load Shots: %s", SDL_GetError());
+		return false;
+	}
+
+	Background = SDL_CreateTextureFromSurface(Renderer, IMG_Load("background.png"));
+	if (Background == NULL)
+	{
+		SDL_Log("Unable to load Background: %s", SDL_GetError());
+		return false;
+	}
+
+	
 	//Init variables
 	Player.Init(20, WINDOW_HEIGHT >> 1, 104, 82, 5);
+	int w;
+	SDL_QueryTexture(Background, NULL, NULL, &w, NULL);
+	Scene.Init(0, 0, w, WINDOW_HEIGHT, 4);
 	idx_shot = 0;
-	idx_shot2 = 0;
+	godMode = false;
+	
 
 	return true;
 }
 void Game::Release()
 {
 	//Clean up all SDL initialized subsystems
-	SDL_DestroyTexture(SpaceshipTexture);
-	SDL_DestroyTexture(ShotTexture);
+	SDL_DestroyTexture(Spaceship);
+	SDL_DestroyTexture(Shot);
+	SDL_DestroyTexture(Background);
 	IMG_Quit();
 	SDL_Quit();
 }
@@ -82,6 +107,7 @@ bool Game::Update()
 	//Process Input
 	int fx = 0, fy = 0;
 	if (keys[SDL_SCANCODE_ESCAPE] == KEY_DOWN)	return true;
+	if (keys[SDL_SCANCODE_F1] == KEY_DOWN) godMode = !godMode;
 	if (keys[SDL_SCANCODE_UP] == KEY_REPEAT)	fy = -1;
 	if (keys[SDL_SCANCODE_DOWN] == KEY_REPEAT)	fy = 1;
 	if (keys[SDL_SCANCODE_LEFT] == KEY_REPEAT)	fx = -1;
@@ -91,15 +117,19 @@ bool Game::Update()
 		int x, y, w, h;
 		Player.GetRect(&x, &y, &w, &h);
 		Shots[idx_shot].Init(x + w - 75, y + h - 79, 56, 20, 10);
-		Shots2[idx_shot].Init(x + w - 75, y + h - 23, 56, 20, 10);
 		idx_shot++;
 		idx_shot %= MAX_SHOTS;
-		idx_shot2++;
-		idx_shot2 %= MAX_SHOTS;
+		Shots[idx_shot].Init(x + w - 75, y + h - 23, 56, 20, 10);
+		idx_shot++;
+		idx_shot %= MAX_SHOTS;
+		
 	}
+
 
 	//Logic
 	//Player update
+	Scene.Move(-1, 0);
+	if (Scene.GetX() <= -Scene.GetWidth()) Scene.SetX(0);
 	Player.Move(fx, fy);
 	//Shots update
 	for (int i = 0; i < MAX_SHOTS; ++i)
@@ -109,11 +139,7 @@ bool Game::Update()
 			Shots[i].Move(1, 0);
 			if (Shots[i].GetX() > WINDOW_WIDTH)	Shots[i].ShutDown();
 		}
-		if (Shots2[i].IsAlive())
-		{
-			Shots2[i].Move(1, 0);
-			if (Shots2[i].GetX() > WINDOW_WIDTH)	Shots2[i].ShutDown();
-		}
+		
 	}
 		
 	return false;
@@ -134,32 +160,25 @@ void Game::Draw()
 	srcRc.y = 0;
 	srcRc.w = 104;
 	srcRc.h = 82;
+	Scene.GetRect(&dstRc.x, &dstRc.y, &dstRc.w, &dstRc.h);
+	SDL_RenderCopy(Renderer, Background, NULL, &dstRc);
+	dstRc.x += dstRc.w;
+	SDL_RenderCopy(Renderer, Background, NULL, &dstRc);
 
 	Player.GetRect(&dstRc.x, &dstRc.y, &dstRc.w, &dstRc.h);
-	SDL_RenderCopy(Renderer, SpaceshipTexture, &srcRc, &dstRc);
+	SDL_RenderCopy(Renderer, Spaceship, &srcRc, &dstRc);
 
 	
 	//Draw shots
-	SDL_Rect srcRcShot;
-	SDL_Rect dstRcShot;
-
-	srcRcShot.x = 0;
-	srcRcShot.y = 0;
-	srcRcShot.w = 56;
-	srcRcShot.h = 20;
+	
 
 	SDL_SetRenderDrawColor(Renderer, 192, 0, 0, 255);
 	for (int i = 0; i < MAX_SHOTS; ++i)
 	{
 		if (Shots[i].IsAlive())
 		{
-			Shots[i].GetRect(&dstRcShot.x, &dstRcShot.y, &dstRcShot.w, &dstRcShot.h);
-			SDL_RenderCopy(Renderer, ShotTexture,&srcRcShot, &dstRcShot);
-		}
-		if (Shots2[i].IsAlive())
-		{
-			Shots2[i].GetRect(&dstRcShot.x, &dstRcShot.y, &dstRcShot.w, &dstRcShot.h);
-			SDL_RenderCopy(Renderer, ShotTexture, &srcRcShot, &dstRcShot);
+			Shots[i].GetRect(&dstRc.x, &dstRc.y, &dstRc.w, &dstRc.h);
+			SDL_RenderCopy(Renderer, Shot, NULL, &dstRc);
 		}
 	}
 
